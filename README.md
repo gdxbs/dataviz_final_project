@@ -1,43 +1,37 @@
 # Data Visualization and Reproducible Research
 
-> Firstname Lastname. 
-
+> Gregory Bateham.
 
 The following is a sample of products created during the _"Data Visualization and Reproducible Research"_ course.
 
-
 ## Project 01
 
-In the `project_01/` folder you can find... _[add short description of your revised project here]_
+In the `project_01/` folder you can find... an analysis of fuel consumption data to identify trends, compare vehicle characteristics, and visualize key findings related to fuel efficiency. The primary dataset used is `fuel.csv`.
 
-**Sample data visualization:** 
+**Sample data visualization:**
 
-_[include your favorite visualization from this project here]_
-<img src="https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/echarts.png" width="70%" height="70%">
-
+[Project 01 Visualization](https://ibb.co/GQR3GK5j)
 
 ## Project 02
 
-In this project, I explored ... _[short description of your revised project goes here]_ Find the code and report in the `project_02/` folder.
+In this project, I explored the audio characteristics of songs from the "All Billboard Summer Hits" dataset. My goal was to practice data wrangling and visualization to uncover the patterns that define a summer hit and to tell a story about how the sound of popular music has evolved over the decades.
 
-**Sample data visualization:** 
+**Sample data visualization:**
 
-_[include your favorite visualization from this project here]_
-<img src="https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/fl_higher_ed.png" width="80%" height="80%">
+[Project 02 Visualization](https://ibb.co/XxbxtkPK)
 
 (you can place your figures in the `figures/` folder and use the `![](path_to_picture)` option to add the pictures here)
 
-
 ## Project 03
 
-In this project, I explored ... _[short description of the data visualizations you for this part of the project produced goes here]_
+In this project, I explored the factors that contribute to concrete compressive strength using a dataset from the UCI Machine Learning Repository. The analysis focused on visualizing the complex, non-linear relationships between the concrete's ingredients (like cement and water), its age, and its final strength. By creating scatter plots with logarithmic scales and multi-faceted visualizations, I was able to effectively illustrate core civil engineering principles, such as the diminishing rate of strength gain over time and the critical importance of the water-to-cement ratio in achieving high-performance concrete.
 
-**Sample data visualization:** 
+**Sample data visualization:**
 
-_[include your favorite visualization from this project here]_
-<img src="https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/concrete_density.png" width="80%" height="80%">
-
+[Project 03 Visualization](https://ibb.co/HpnSJ6dm)
 
 ### Moving Forward
 
-_Please add here a short reflection on what you learned and what you plan to continue exploring in terms of data visualization, data storytelling, reproducible research, and/or related topics._
+Throughout this course, I've learned that data visualization is far more than creating pretty charts; it's a powerful tool for discovery and communication. The process of wrestling with data to find the right visual representation—like using a log scale to reveal a temporal trend or faceting plots to deconstruct a multi-dimensional relationship—has taught me how to uncover and tell compelling stories hidden within the numbers.
+
+Moving forward, I plan to delve deeper into interactive visualizations using libraries like Plotly and D3.js, allowing users to explore the data for themselves. I also want to refine my skills in data storytelling, focusing on how to build a clear and impactful narrative around a set of visualizations. Finally, I am committed to the principles of reproducible research, and I will continue to use tools like R Markdown and Jupyter Notebooks to ensure my work is transparent, credible, and easy for others to build upon.

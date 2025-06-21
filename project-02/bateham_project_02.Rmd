@@ -1,0 +1,221 @@
+---
+title: "Data Visualization Mini-Project 2: An Analysis of Billboard Summer Hits"
+author: "Gregory Bateham gbateham9459@floridapoly.edu"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: journal
+    toc: yes
+    toc_float: yes
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## 1. Introduction and Planning
+
+My report explores the "All Billboard Summer Hits" dataset, focusing on the quantitative audio features of songs that have defined summers past. The goal I set for myself was to practice data wrangling and visualization techniques to uncover patterns in the data and tell a story about how the sound of summer hits has evolved over time.
+
+#### Original Plan
+
+My plan is to create three visualizations to answer the following questions:
+1.  **What is the relationship between a song's energy and its danceability?** I plan to make an interactive scatter plot for this, colored by decade, to see how this relationship has changed over time.
+2.  **How has the "sound" of summer evolved?** To meet the project's spatial requirement, I'll create a conceptual "map of summer music," assigning key decades to cities whose music scenes were influential during those periods (e.g., 1970s Disco to New York).
+3.  **Can we predict a song's mood?** I will build a linear model to predict `valence` using other audio features and visualize the model's coefficients to see which factors are most important for a "happy" sounding summer hit.
+
+## 2. Data Cleaning and Preparation
+
+The first step is to load the necessary libraries and the dataset.
+
+```{r load-libraries-data}
+library(tidyverse) 
+library(plotly)    # For creating interactive plots
+library(leaflet)   # For creating interactive maps
+library(broom)     # For tidying model output
+
+billboard_df <- read_csv("../data/all_billboard_summer_hits.csv")
+
+if (!"speechiness" %in% names(billboard_df) && "speehiness" %in% names(billboard_df)) {
+  billboard_df <- rename(billboard_df, speechiness = speehiness)
+}
+
+songs_clean <- billboard_df %>%
+  # Select and rename columns for clarity and relevance
+  select(
+    year, track_name, artist_name,
+    danceability, energy, loudness, speechiness, acousticness,
+    instrumentalness, liveness, valence, tempo, duration_ms
+  ) %>%
+  # Create a 'decade' column for grouping
+  mutate(
+    decade = floor(year / 10) * 10,
+    decade = paste0(decade, "s")
+  ) %>%
+  # Convert decade to a factor for plotting
+  mutate(decade = as.factor(decade)) %>%
+  # Remove duplicates, keeping the first instance of each track
+  distinct(track_name, artist_name, .keep_all = TRUE)
+
+# Glimpse the cleaned data
+glimpse(songs_clean)
+```
+
+## 3. Visualizations and Findings
+
+Here, I present the three visualizations created from the cleaned data, each telling a part of the story of summer hits.
+
+### Visualization 1: Interactive - Energy and Danceability Through the Decades
+
+**Story**: This plot explores the classic relationship between `energy` and `danceability`. By coloring the points by decade, I'll be able to see if the sonic signature of a "danceable hit" has changed over time.
+
+```{r interactive-plot}
+# Sample the data to avoid overplotting if the dataset is large
+set.seed(42) # for reproducibility
+sample_size <- min(nrow(songs_clean), 2000)
+songs_sample <- songs_clean %>% sample_n(sample_size)
+
+p <- ggplot(songs_sample, aes(x = energy, y = danceability, color = decade,
+                          # Custom data for the hover text in plotly
+                          text = paste("Track:", track_name,
+                                       "<br>Artist:", artist_name,
+                                       "<br>Year:", year))) +
+  geom_point(alpha = 0.7, size = 1.5) +
+  labs(
+    title = "Energy vs. Danceability in Summer Hits by Decade",
+    subtitle = "The positive correlation is timeless, but each decade has its own cluster",
+    x = "Energy",
+    y = "Danceability",
+    color = "Decade"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+# Convert to an interactive plotly object
+ggplotly(p, tooltip = "text")
+```
+
+### Visualization 2: Spatial - A Conceptual Map of Summer Music Eras
+
+**Story**: This visualization I coded creates a conceptual map to tell a story about the "sound" of different eras. It assigns major decades to cities famous for influential music scenes during those times, creating an interactive map that connects sounds to places and times.
+
+```{r spatial-plot}
+# 1. Create a summary data frame by decade
+decade_summary <- songs_clean %>%
+  group_by(decade) %>%
+  summarise(
+    track_count = n(),
+    avg_valence = mean(valence, na.rm = TRUE),
+    avg_energy = mean(energy, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# 2. Manually create the spatial data by assigning cities to decades
+decade_locations <- decade_summary %>%
+  # Filter out decades with too few songs for a cleaner map
+  filter(track_count > 10) %>%
+  mutate(
+    city = case_when(
+      decade == "1960s" ~ "London, UK",
+      decade == "1970s" ~ "New York, USA",
+      decade == "1980s" ~ "Los Angeles, USA",
+      decade == "1990s" ~ "Atlanta, USA",
+      decade == "2000s" ~ "Stockholm, Sweden", # Max Martin Pop Factory
+      decade == "2010s" ~ "Global/Online"
+    ),
+    lat = case_when(
+      decade == "1960s" ~ 51.5074,
+      decade == "1970s" ~ 40.7128,
+      decade == "1980s" ~ 34.0522,
+      decade == "1990s" ~ 33.7490,
+      decade == "2000s" ~ 59.3293,
+      decade == "2010s" ~ 20.0
+    ),
+    lng = case_when(
+      decade == "1960s" ~ -0.1278,
+      decade == "1970s" ~ -74.0060,
+      decade == "1980s" ~ -118.2437,
+      decade == "1990s" ~ -84.3880,
+      decade == "2000s" ~ 18.0686,
+      decade == "2010s" ~ 0
+    )
+  ) %>%
+  # Create popup text
+  mutate(popup_text = paste(
+    "<b>Decade:</b>", decade,
+    "<br><b>Conceptual Home:</b>", city,
+    "<br><b>Avg. Mood (Valence):</b>", round(avg_valence, 2),
+    "<br><b>Avg. Energy:</b>", round(avg_energy, 2)
+  ))
+  
+# 3. Create the leaflet map
+leaflet(decade_locations) %>%
+  addProviderTiles(providers$CartoDB.Positron, options = providerTileOptions(minZoom = 2, maxZoom=6)) %>%
+  addCircleMarkers(
+    lng = ~lng, lat = ~lat,
+    popup = ~popup_text,
+    radius = ~sqrt(track_count)/2, # Scale radius by number of hits
+    color = "darkred",
+    stroke = FALSE,
+    fillOpacity = 0.7
+  ) %>%
+  setView(lng = -30, lat = 35, zoom = 2) %>%
+  addControl("<h4>Conceptual Map of Summer Hit Eras</h4>", position = "topright")
+```
+
+### Visualization 3: Model - Predicting a Summer Hit's Mood (Valence)
+
+**Story**: What makes a summer hit sound "happy"? This visualization I created builds a linear model to predict a song's `valence` (musical positiveness) from its other attributes. I'll then plot the coefficients to see which features are the most powerful predictors.
+
+```{r model-plot}
+# 1. Build the linear model
+valence_model <- lm(
+  valence ~ danceability + energy + loudness + speechiness + acousticness + instrumentalness,
+  data = songs_clean
+)
+
+# 2. Tidy the model output
+model_tidy <- tidy(valence_model, conf.int = TRUE) %>%
+  filter(term != "(Intercept)")
+
+# 3. Create the coefficient plot
+# Annotation for the plot
+annotation_text <- "Danceability and Energy are the strongest predictors of a positive-sounding summer hit."
+
+ggplot(model_tidy, aes(x = estimate, y = reorder(term, estimate))) +
+  geom_vline(xintercept = 0, color = "red", linetype = "dashed") +
+  geom_point(color = "darkblue", size = 3) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high), height = 0.2, color = "darkblue") +
+  labs(
+    title = "Which Features Predict a Summer Hit's 'Happiness' (Valence)?",
+    subtitle = "Coefficients of a Linear Model. Whiskers show 95% confidence intervals.",
+    x = "Coefficient Estimate (Impact on Valence)",
+    y = "Audio Feature"
+  ) +
+  theme_minimal() +
+  
+  annotate("text", x = 0.5, y = 1.5, label = str_wrap(annotation_text, 35), hjust = 0.5, fontface = "italic")
+```
+
+## 4. Discussion and Conclusion
+
+My project set out to explore the audio characteristics of Billboard Summer Hits, guided by a plan to create three distinct visualizations: an interactive scatter plot, a spatial map, and a model coefficient plot. My process began with essential data preparation, which involved loading the data, selecting relevant features, and engineering a `decade` variable to enable historical analysis. This foundational work was crucial for my subsequent visualizations.
+
+#### The Story in the Data
+The three visualizations I created when viewed together tell a compelling story about the sonic formula for a summer hit.
+
+1.  The interactive scatter plot of energy versus danceability immediately established a core truth: these two features are positively correlated. A high-energy song is typically a danceable song, and this seems to be a timeless recipe for a hit, as the trend persists across all decades. The interactivity allows for a deeper dive, revealing how different eras cluster within this general trend—the tightly-packed, high-energy hits of the 70s and 80s stand out against the more varied songs of other decades.
+
+2.  The conceptual spatial map built upon this by adding a creative, narrative layer. By assigning musical eras to influential cities, it contextualized the data in a geographical and historical framework. This visualization was born out of the necessity to meet the spatial plot requirement with non-spatial data, a common challenge in data analysis. The result is an engaging story piece, suggesting that the "sound" of summer has cultural homes, from the Disco beats of 70s New York to the globalized, internet-driven pop of the 2010s.
+
+3.  Finally, the linear model visualization provided the most direct answer to what makes a song sound "happy." The coefficient plot acts as a recipe, clearly showing that `energy` and `danceability` are the strongest positive ingredients for `valence` (musical happiness). Just as importantly, it revealed that `acousticness` has a strong negative relationship, suggesting that stripped-down, acoustic tracks are less likely to be perceived as upbeat summer anthems.
+
+#### Challenges and Design Principles
+The primary difficulties I encountered were technical and conceptual. The technical challenge of potentially overplotting in the scatter plot was solved by taking a random sample of the data. The conceptual challenge was creating a spatial plot from non-spatial data. I overcame this with a creative, manual process of data generation that successfully fulfilled the project requirement.
+
+As I worked on this project, key principles of data visualization were applied. Clarity and simplicity were prioritized by using `theme_minimal()` to maximize the data-ink ratio. **Interactivity** was leveraged via `plotly` and `leaflet` to encourage user exploration and engagement. Clear annotations and labels were used on all plots to guide interpretation, with the model plot featuring a direct text annotation to ensure the main finding was unmissable. These decisions transform the charts from simple data displays into effective tools for communication and storytelling.
+
+#### Future Directions
+While this analysis yielded clear insights, there are many additional avenues for exploration. A time-series analysis could plot how the average of each audio feature has trended year-over-year, revealing more granular shifts in musical tastes. Furthermore, unsupervised clustering algorithms like K-Means could be applied to the audio features to discover natural, data-driven "genres" or "types" of summer hits, which may differ from traditional genre labels. These advanced techniques could uncover even deeper patterns in what makes a song a timeless summer hit.
+

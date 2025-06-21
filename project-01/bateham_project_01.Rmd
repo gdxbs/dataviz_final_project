@@ -1,0 +1,325 @@
+---
+title: "Fuel Consumption Analysis"
+author: "Greg Bateham"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+# This chunk sets up the R Markdown environment.
+# echo = TRUE means the code will be shown in the output.
+# message = FALSE and warning = FALSE prevent messages and warnings from appearing in the final report.
+```
+
+## 1. Introduction
+
+This report analyzes fuel consumption data from the `fuel.csv` dataset. The objective is to understand trends, compare different categories, and visualize key findings. I will explore aspects such as fuel efficiency across different vehicle classes (`class`) and how it has changed over the years (`year`).
+
+**Data Source:** The data used for this analysis is `fuel.csv`, located in the `data/` directory of this project.
+
+**Questions to Address (Example - adapt to your actual data and interests):**
+* How has average fuel efficiency (e.g., `combined_mpg_ft1`) changed over the `year`s?
+* Which vehicle `class`es are the most/least fuel-efficient?
+* Is there a relationship between `engine_displacement` and fuel efficiency (`combined_mpg_ft1`)?
+
+## 2. Loading Libraries and Data
+
+I will use the `tidyverse` package for data manipulation and visualization.
+
+```{r load_libraries}
+# Load the tidyverse package, which includes dplyr, ggplot2, and readr
+library(tidyverse)
+library(lubridate) # For potential date manipulations, if needed
+```
+
+Now, I'll load the dataset. The `fuel.csv` file is expected to be in the `../data/` directory relative to this R Markdown file (which is in the `report/` folder).
+
+```{r load_data}
+# Construct the file path relative to the Rmd file
+file_path <- "../data/fuel.csv"
+
+# Load the dataset
+fuel_data <- read_csv(file_path, col_types = cols()) # col_types = cols() lets read_csv guess.
+                                                  # For large/complex files, you might specify types.
+                                                  # e.g. col_types = cols(year = col_integer(), make = col_character(), ...)
+
+
+# Display the first few rows of the data to understand its structure
+print("First 6 rows of the dataset:")
+head(fuel_data)
+
+# Display a summary of the dataset
+print("Summary of the dataset:")
+summary(fuel_data)
+
+# Display the column names and their types
+print("Column names and types:")
+glimpse(fuel_data)
+```
+
+## 3. Data Cleaning and Preparation
+
+This section involves cleaning the data, handling missing values, and transforming variables as needed, using the actual column names from your file.
+
+Key columns I'll focus on: `year`, `class`, `engine_displacement`, `combined_mpg_ft1`.
+
+```{r data_cleaning_preparation}
+# Ensure 'year' is numeric/integer
+if("year" %in% colnames(fuel_data) && !is.numeric(fuel_data$year)) {
+  fuel_data <- fuel_data %>% mutate(year = as.integer(as.character(year)))
+}
+
+# Ensure MPG columns are numeric. I'll focus on 'combined_mpg_ft1'
+# Add 'city_mpg_ft1', 'highway_mpg_ft1' if you plan to use them.
+mpg_cols_to_check <- c("combined_mpg_ft1", "city_mpg_ft1", "highway_mpg_ft1")
+for (col_name in mpg_cols_to_check) {
+  if(col_name %in% colnames(fuel_data) && !is.numeric(fuel_data[[col_name]])) {
+    fuel_data <- fuel_data %>% mutate(!!sym(col_name) := as.numeric(!!sym(col_name)))
+  }
+}
+
+# Ensure 'engine_displacement' is numeric
+if("engine_displacement" %in% colnames(fuel_data) && !is.numeric(fuel_data$engine_displacement)) {
+  fuel_data <- fuel_data %>% mutate(engine_displacement = as.numeric(engine_displacement))
+}
+
+# Clean 'class' names (e.g., trim whitespace, standardize capitalization)
+if("class" %in% colnames(fuel_data)) {
+  fuel_data <- fuel_data %>%
+    mutate(class = str_to_title(trimws(class))) # Converts to Title Case
+}
+
+# Filter out rows with missing essential data for our primary analysis
+# (e.g., combined_mpg_ft1, year, class)
+required_cols <- c("combined_mpg_ft1", "year", "class", "engine_displacement")
+if(all(required_cols %in% colnames(fuel_data))) {
+  fuel_data_cleaned <- fuel_data %>%
+    filter(
+      !is.na(combined_mpg_ft1) & 
+      !is.na(year) & 
+      !is.na(class) &
+      !is.na(engine_displacement) # Added engine_displacement here
+    )
+  
+  print(paste("Rows before cleaning NAs in key columns:", nrow(fuel_data)))
+  print(paste("Rows after cleaning NAs in key columns:", nrow(fuel_data_cleaned)))
+} else {
+  missing_cols_for_cleaning <- required_cols[!required_cols %in% colnames(fuel_data)]
+  print(paste("One or more key columns for NA cleaning not found:", paste(missing_cols_for_cleaning, collapse=", ")))
+  print("Skipping NA cleaning step based on these specific columns. Using data as loaded for further steps, NAs will be handled in summaries/plots.")
+  fuel_data_cleaned <- fuel_data # Use original data if key columns are missing, NAs handled later
+}
+
+
+# Display the structure of the (potentially) cleaned data
+print("Structure of data after initial preparation:")
+glimpse(fuel_data_cleaned)
+```
+
+## 4. Data Summarization and Exploration
+
+I'll perform some initial summaries.
+
+### 4.1. Average Fuel Efficiency Over Years
+
+Using `combined_mpg_ft1` and `year`.
+
+```{r summary_mpg_by_year, eval = ("combined_mpg_ft1" %in% colnames(fuel_data_cleaned) && "year" %in% colnames(fuel_data_cleaned))}
+# Calculate average combined MPG (ft1) per year
+avg_mpg_by_year <- fuel_data_cleaned %>%
+  filter(!is.na(combined_mpg_ft1) & !is.na(year)) %>% # Ensure no NAs for this specific summary
+  group_by(year) %>%
+  summarize(
+    average_combined_mpg = mean(combined_mpg_ft1, na.rm = TRUE),
+    count = n() # Number of vehicle models recorded for that year
+  ) %>%
+  arrange(year)
+
+print("Average Combined MPG (ft1) by Year:")
+print(avg_mpg_by_year)
+```{r no_summary_mpg_by_year, eval = !("combined_mpg_ft1" %in% colnames(fuel_data_cleaned) && "year" %in% colnames(fuel_data_cleaned))}
+print("Skipping 'Average Fuel Efficiency Over Years' summary as 'combined_mpg_ft1' or 'year' column is missing or data cleaning removed them.")
+```
+
+### 4.2. Fuel Efficiency by Vehicle Class
+
+Using `class` and `combined_mpg_ft1`.
+
+```{r summary_mpg_by_class, eval = ("class" %in% colnames(fuel_data_cleaned) && "combined_mpg_ft1" %in% colnames(fuel_data_cleaned))}
+# Calculate average combined MPG (ft1) by vehicle class
+avg_mpg_by_class <- fuel_data_cleaned %>%
+  filter(!is.na(combined_mpg_ft1) & !is.na(class)) %>%
+  group_by(class) %>%
+  summarize(
+    average_combined_mpg = mean(combined_mpg_ft1, na.rm = TRUE),
+    median_combined_mpg = median(combined_mpg_ft1, na.rm = TRUE),
+    min_combined_mpg = min(combined_mpg_ft1, na.rm = TRUE),
+    max_combined_mpg = max(combined_mpg_ft1, na.rm = TRUE),
+    count = n()
+  ) %>%
+  arrange(desc(average_combined_mpg))
+
+print("Average Combined MPG (ft1) by Vehicle Class:")
+print(avg_mpg_by_class)
+```{r no_summary_mpg_by_class, eval = !("class" %in% colnames(fuel_data_cleaned) && "combined_mpg_ft1" %in% colnames(fuel_data_cleaned))}
+print("Skipping 'Fuel Efficiency by Vehicle Class' summary as 'class' or 'combined_mpg_ft1' column is missing or data cleaning removed them.")
+```
+
+### 4.3. Distribution of Engine Displacement
+
+Using `engine_displacement`.
+
+```{r summary_displacement, eval = "engine_displacement" %in% colnames(fuel_data_cleaned)}
+# Summary of engine displacement
+displacement_summary <- fuel_data_cleaned %>%
+  filter(!is.na(engine_displacement)) %>%
+  summarize(
+    average_displacement = mean(engine_displacement, na.rm = TRUE),
+    median_displacement = median(engine_displacement, na.rm = TRUE),
+    min_displacement = min(engine_displacement, na.rm = TRUE),
+    max_displacement = max(engine_displacement, na.rm = TRUE)
+  )
+
+print("Summary of Engine Displacement (Liters):")
+print(displacement_summary)
+```{r no_summary_displacement, eval = !("engine_displacement" %in% colnames(fuel_data_cleaned))}
+print("Skipping 'Distribution of Engine Displacement' summary as 'engine_displacement' column is missing or data cleaning removed it.")
+```
+
+
+## 5. Visualizations
+
+Here we create at least three visualizations based on our data.
+
+### 5.1. Plot 1: Trend of Average Fuel Efficiency Over Time
+
+```{r plot_mpg_trend, eval = ("combined_mpg_ft1" %in% colnames(fuel_data_cleaned) && "year" %in% colnames(fuel_data_cleaned))}
+# avg_mpg_by_year is created in chunk summary_mpg_by_year
+if(exists("avg_mpg_by_year") && nrow(avg_mpg_by_year) > 0) {
+  ggplot(avg_mpg_by_year, aes(x = year, y = average_combined_mpg)) +
+    geom_line(color = "steelblue", linewidth = 1) + # Changed size to linewidth for newer ggplot2
+    geom_point(color = "steelblue", size = 2) +
+    labs(
+      title = "Average Combined Fuel Efficiency (Primary Fuel) Over Years",
+      x = "Year",
+      y = "Average Combined MPG (ft1)"
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5)) # Center title
+} else {
+  print("Data for 'Trend of Average Fuel Efficiency Over Time' plot is not available (check 'avg_mpg_by_year').")
+}
+```{r no_plot_mpg_trend, eval = !("combined_mpg_ft1" %in% colnames(fuel_data_cleaned) && "year" %in% colnames(fuel_data_cleaned))}
+print("Skipping 'Trend of Average Fuel Efficiency Over Time' plot as 'combined_mpg_ft1' or 'year' column is missing from cleaned data.")
+```
+**Interpretation for Plot 1:** This line chart shows the trend of average combined Miles Per Gallon for the primary fuel type (`combined_mpg_ft1`) from 1984 to 2017 based on the available data.I observe if there's an upward, downward, or stable trend in fuel efficiency over time.
+
+### 5.2. Plot 2: Comparison of Fuel Efficiency by Vehicle Class
+
+```{r plot_mpg_by_class, eval = ("class" %in% colnames(fuel_data_cleaned) && "combined_mpg_ft1" %in% colnames(fuel_data_cleaned))}
+# avg_mpg_by_class is created in chunk summary_mpg_by_class
+if(exists("avg_mpg_by_class") && nrow(avg_mpg_by_class) > 0) {
+  # For better visualization, I'll take top N classes or filter if too many
+  top_n_classes <- avg_mpg_by_class %>%
+    arrange(desc(average_combined_mpg)) %>%
+    head(15) # Show top 15, or adjust as needed if you have many classes
+
+  ggplot(top_n_classes, aes(x = reorder(class, average_combined_mpg), y = average_combined_mpg, fill = class)) +
+    geom_col(show.legend = FALSE) + # Bar chart
+    coord_flip() + # Horizontal bars for better readability of class names
+    labs(
+      title = "Average Combined Fuel Efficiency (Primary Fuel) by Vehicle Class",
+      x = "Vehicle Class (`class`)",
+      y = "Average Combined MPG (ft1)"
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5))
+} else {
+  print("Data for 'Comparison of Fuel Efficiency by Vehicle Class' plot is not available (check 'avg_mpg_by_class').")
+}
+```{r no_plot_mpg_by_class, eval = !("class" %in% colnames(fuel_data_cleaned) && "combined_mpg_ft1" %in% colnames(fuel_data_cleaned))}
+print("Skipping 'Comparison of Fuel Efficiency by Vehicle Class' plot as 'class' or 'combined_mpg_ft1' column is missing from cleaned data.")
+```
+**Interpretation for Plot 2:** This bar chart compares the average combined MPG (`combined_mpg_ft1`) across different vehicle `class`es. The classes are ordered by their efficiency. This helps identify which types of vehicles are generally more or less fuel-efficient.
+
+### 5.3. Plot 3: Relationship between Engine Displacement and Fuel Efficiency
+
+```{r plot_displacement_vs_mpg, eval = ("engine_displacement" %in% colnames(fuel_data_cleaned) && "combined_mpg_ft1" %in% colnames(fuel_data_cleaned) && "class" %in% colnames(fuel_data_cleaned))}
+# Prepare data for scatter plot, ensuring no NAs in relevant columns
+fuel_data_for_scatter <- fuel_data_cleaned %>%
+  filter(!is.na(engine_displacement) & !is.na(combined_mpg_ft1) & !is.na(class))
+
+# Sample a portion of data if it's too large for a clear scatter plot
+set.seed(123) # for reproducibility
+if(nrow(fuel_data_for_scatter) > 2000) {
+    fuel_data_sample <- sample_n(fuel_data_for_scatter, 2000)
+} else {
+    fuel_data_sample <- fuel_data_for_scatter
+}
+
+
+if(nrow(fuel_data_sample) > 0) {
+  ggplot(fuel_data_sample, aes(x = engine_displacement, y = combined_mpg_ft1)) +
+    geom_point(aes(color = class), alpha = 0.6, size = 2) + 
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "darkred") + 
+    labs(
+      title = "Engine Displacement vs. Combined Fuel Efficiency (Primary Fuel)",
+      x = "Engine Displacement (Liters) (`engine_displacement`)",
+      y = "Combined MPG (ft1) (`combined_mpg_ft1`)",
+      color = "Vehicle Class (`class`)"
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom")
+} else {
+  print("Data for 'Relationship between Engine Displacement and Fuel Efficiency' plot is not available (engine_displacement, combined_mpg_ft1, or class might be all NA or missing).")
+}
+```{r no_plot_displacement_vs_mpg, eval = !( "engine_displacement" %in% colnames(fuel_data_cleaned) && "combined_mpg_ft1" %in% colnames(fuel_data_cleaned) && "class" %in% colnames(fuel_data_cleaned))}
+print("Skipping 'Relationship between Engine Displacement and Fuel Efficiency' plot as 'engine_displacement', 'combined_mpg_ft1', or 'class' column is missing from cleaned data.")
+```
+**Interpretation for Plot 3:** This scatter plot explores the relationship between `engine_displacement` (size) and `combined_mpg_ft1`. Each point represents a vehicle model. We generally expect a negative correlation: larger engines tend to have lower fuel efficiency. The color coding by `class` can reveal if this trend differs across classes.
+
+## 6. Discussion and Findings
+
+### What were the original charts you planned to create for this assignment?
+Initially, I planned to create:
+1.  A time-series plot of average fuel efficiency (`combined_mpg_ft1`) over `year`s.
+2.  A bar chart comparing fuel efficiency across different vehicle `class`es.
+3.  A scatter plot to investigate the relationship between `engine_displacement` and `combined_mpg_ft1`.
+
+### What story could you tell with your plots?
+The plots aim to tell a story about fuel efficiency in vehicles:
+* **Plot 1 (MPG Trend):** Illustrates historical changes in average vehicle fuel efficiency.
+* **Plot 2 (MPG by Class):** Highlights which vehicle categories are more fuel-efficient.
+* **Plot 3 (Displacement vs. MPG):** Shows the trade-off between engine size and fuel economy.
+
+Together, these plots provide a view of fuel efficiency from temporal, categorical, and engineering perspectives.
+
+### How did you apply the principles of data visualizations and design for this assignment?
+* **Appropriate Chart Types:** Line for time-series, bar for categories, scatter for relationships. `coord_flip()` for readability.
+* **Color Usage:** Purposeful color for distinguishing classes in Plot 3; consistent color otherwise.
+* **Labeling:** Clear axis labels (including actual column names like `combined_mpg_ft1` and `engine_displacement`) and titles.
+* **Ordering:** Bars in Plot 2 ordered by MPG for easier comparison.
+
+## 7. Conclusion
+
+This analysis of the `fuel.csv` dataset, focusing on `combined_mpg_ft1`, `year`, `class`, and `engine_displacement`, has yielded several key insights into vehicle fuel consumption patterns. 
+
+Firstly, a significant trend observed was the **drastic increase in average combined MPG for vehicles manufactured after 2010**. This suggests a pivotal shift in the automotive industry during this period, likely driven by a combination of stricter emissions regulations, advancements in engine technology (such as direct injection, turbocharging for smaller engines, and improved transmissions), and a growing consumer demand for more fuel-efficient vehicles. This upward trend signals positive developments towards reducing overall fuel consumption.
+
+Secondly, the analysis confirmed the well-established principle that **engine displacement has an inverse relationship with fuel efficiency; as engine size increases, average combined MPG tends to decrease gradually**. This highlights the fundamental trade-off between power and economy. While larger engines often provide more horsepower and torque, they inherently consume more fuel. This finding underscores the importance of engine sizing in vehicle design for achieving fuel efficiency targets.
+
+Thirdly, when comparing vehicle classes, **"Small Station Wagons" emerged as the category with the highest average combined MPG**. This is an interesting finding, as station wagons, while often practical, are not always perceived as fuel efficiency leaders compared to, for example, subcompact cars or dedicated hybrids (depending on how classes are defined in the dataset). This suggests that this particular segment might benefit from a combination of aerodynamic design, optimized powertrain configurations, and potentially lower average vehicle weight compared to other larger classes like SUVs or trucks.
+
+These findings collectively paint a picture of an evolving automotive landscape where efficiency is increasingly prioritized, yet fundamental engineering principles continue to govern performance. The data indicates that consumers seeking maximum fuel economy might find strong candidates within the Small Station Wagon class, and that vehicles post-2010 generally offer better MPG.
+
+**Future Directions and Considerations:**
+* **Investigate the "Post-2010" Shift:** A more granular analysis could explore the specific technological advancements or policy changes that contributed most significantly to the MPG increase after 2010. This could involve looking at the prevalence of `turbocharger`, `supercharger`, `start_stop_technology`, or `alternative_fuel_technology` columns.
+* **Dual Fuel Vehicles:** This analysis focused on `combined_mpg_ft1` (primary fuel type). An interesting extension would be to analyze vehicles with a secondary fuel type (`fuel_type_2` and associated `_ft2` MPG columns), especially for electric or hybrid vehicles, to understand their overall energy efficiency and range. Columns like `electric_motor`, `range_ft1`, `range_ft2`, `composite_combined_mpg` would be crucial here.
+* **Manufacturer Analysis:** Are certain `make`s consistently outperforming others in terms of fuel efficiency within specific classes or across their entire fleet?
+* **Impact of Transmission:** The `transmission` and `transmission_type` columns could be analyzed to see if automatic vs. manual, or different types of automatic transmissions (e.g., CVT), have a significant impact on MPG.
+* **Geographic or Market Factors (if applicable):** If the dataset had regional information, exploring regional differences in fuel efficiency preferences or availability would be insightful, though this dataset seems focused on vehicle specifications.
+* **Advanced Modeling:** Predictive modeling could be employed to identify the most influential factors determining `combined_mpg_ft1`, potentially uncovering more complex interactions between variables beyond the scope of this exploratory analysis.
+
+This study provides a solid foundation for understanding key fuel efficiency metrics. Further exploration of this rich dataset can undoubtedly uncover deeper insights into the multifaceted world of vehicle energy consumption.
+
