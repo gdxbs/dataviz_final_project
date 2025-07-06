@@ -8,17 +8,17 @@ The following is a sample of products created during the _"Data Visualization an
 
 In the `project_01/` folder you can find... an analysis of fuel consumption data to identify trends, compare vehicle characteristics, and visualize key findings related to fuel efficiency. The primary dataset used is `fuel.csv`.
 
-**Sample data visualization:**
+**Here's an example of a line graph from this project:**
 
-[Project 01 Visualization](https://ibb.co/GQR3GK5j)
+![Project 01 Visualization](sampleimgs/proj1.PNG)
 
 ## Project 02
 
 In this project, I explored the audio characteristics of songs from the "All Billboard Summer Hits" dataset. My goal was to practice data wrangling and visualization to uncover the patterns that define a summer hit and to tell a story about how the sound of popular music has evolved over the decades.
 
-**Sample data visualization:**
+**Here's an example of a leaflet map from this project:**
 
-[Project 02 Visualization](https://ibb.co/XxbxtkPK)
+![Project 02 Visualization](sampleimgs/linkedin4.PNG)
 
 (you can place your figures in the `figures/` folder and use the `![](path_to_picture)` option to add the pictures here)
 
@@ -26,9 +26,9 @@ In this project, I explored the audio characteristics of songs from the "All Bil
 
 In this project, I explored the factors that contribute to concrete compressive strength using a dataset from the UCI Machine Learning Repository. The analysis focused on visualizing the complex, non-linear relationships between the concrete's ingredients (like cement and water), its age, and its final strength. By creating scatter plots with logarithmic scales and multi-faceted visualizations, I was able to effectively illustrate core civil engineering principles, such as the diminishing rate of strength gain over time and the critical importance of the water-to-cement ratio in achieving high-performance concrete.
 
-**Sample data visualization:**
+**Here's an example of a ridgeline plot from this project:**
 
-[Project 03 Visualization](https://ibb.co/HpnSJ6dm)
+![Project 03 Visualization](sampleimgs/linkedin1.PNG)
 
 ### Moving Forward
 
