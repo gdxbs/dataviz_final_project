@@ -31,10 +31,10 @@ sample_n(weather_tpa, 4)
 ## # A tibble: 4 × 7
 ##    year month   day precipitation max_temp min_temp ave_temp
 ##   <dbl> <dbl> <dbl>         <dbl>    <dbl>    <dbl>    <dbl>
-## 1  2022     5    24          0.01       94       79     86.5
-## 2  2022    10    16          0          90       71     80.5
-## 3  2022    12     3          0          82       63     72.5
-## 4  2022    10    12          0.02       85       74     79.5
+## 1  2022     2    17          0          86       67     76.5
+## 2  2022     9    11          0.02       90       77     83.5
+## 3  2022    12     7          0          84       67     75.5
+## 4  2022     5    14          0          88       72     80
 ```
 
 See Slides from Week 4 of Visualizing Relationships and Models (slide 10) for a reminder on how to use this type of dataset with the `lubridate` package for dates and times (example included in the slides uses data from 2016).
